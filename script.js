@@ -1,28 +1,21 @@
-const config = {
-  day: 400,
-  k: {
-    1: 20,
-    2: 35,
-    3: 50
-  },
-  formula(x, num) {
-    return x / Math.log10(x) * this.k[num]
-  }
-}
+import State from './state.js'
+import config from "./config.js"
 
-const amount = document.getElementsByClassName('amount')
-const coinsForStack = document.querySelector('.staking > input')
-const period = document.querySelector('.staking > select')
-const button = document.querySelector('.staking > button')
+const storage = new State()
+
+storage.add('amount', document.querySelector('.amount'))
+storage.add('coinsForStack', document.querySelector('.staking > input'))
+storage.add('period', document.querySelector('.staking > select'))
+storage.add('button', document.querySelector('.staking > button'))
 
 document.addEventListener('keyup', (key) => {
-  if (key.code === 'KeyD') amount[0].innerText++
+  if (key.code === 'KeyD') storage.amount.innerText++
 })
 
-coinsForStack.addEventListener('input', (e) => {
+storage.coinsForStack.addEventListener('input', (e) => {
   const staking = document.querySelector('.staking')
 
-  if (+e.target.value > +amount[0].innerText) {
+  if (+e.target.value > +storage.amount.innerText) {
     e.target.value = ''
 
     staking.setAttribute('data-error', 'Нельзя вводить значение больше, чем общее кол-во!')
@@ -31,17 +24,17 @@ coinsForStack.addEventListener('input', (e) => {
   }
 })
 
-button.addEventListener('click', getMoney)
-coinsForStack.addEventListener('keydown', (key) => {
+storage.button.addEventListener('click', getMoney)
+storage.coinsForStack.addEventListener('keydown', (key) => {
   if (key.code === 'Enter') getMoney()
 })
 
 function getMoney () {
-  const x = coinsForStack.value
-  const time = parseInt(period.options[period.selectedIndex].innerText)
+  const x = storage.coinsForStack.value
+  const time = parseInt(storage.period.options[storage.period.selectedIndex].innerText)
 
-  amount[0].innerText -= x
-  coinsForStack.value = ''
+  storage.amount.innerText = +(storage.amount.innerText - x).toFixed(4)
+  storage.coinsForStack.value = ''
 
   addDataToTable(x, `${time}d`, 0)
 
@@ -63,24 +56,40 @@ function addDataToTable (sum, period, curSum) {
 }
 
 function timer (x) {
-  const num = period.value
+  const num = storage.period.value
   const days = document.querySelector('table tr:last-child td:nth-child(3)')
-  const perOneDay = config.formula(x, num) / parseInt(days.innerText)
+  const fullSum = config.formula(x, num) * parseInt(days.innerText) + +x
+  const curSum = days.nextElementSibling
+  const arr = config.arrayTimers
   let timer = parseInt(days.innerText)
 
+  arr.push(parseInt(days.innerText))
+
+  if (arr.length > 1) {
+    const [b, a] = arr
+    const curDays = document.querySelector(`table tr:nth-child(${arr.length - 1}) td:nth-child(3)`)
+
+    arr[0] = parseInt(curDays.innerText)
+    config.time += Math.abs(a - b)
+  }
+
   const id = setInterval(() => {
-    const curSum = days.nextElementSibling
-    
     if (timer <= 0) {
-      amount[0].innerText = +(+amount[0].innerText + +config.formula(x, num)).toFixed(4)
-      days.parentElement.remove()
+      storage.amount.innerText = +(+storage.amount.innerText + +fullSum).toFixed(4)
+      
+      days.parentElement.remove();
+      (arr[0] > arr[1]) ? arr.pop() : arr.shift()
 
       clearInterval(id)
+      return
     }
 
     days.innerText = `${timer}d`
-    curSum.innerText = (+curSum.innerText + +perOneDay).toFixed(4)
+    curSum.innerText = (+curSum.innerText + +config.formula(x, num)).toFixed(4)
+
+    if (config.time <= 0) config.burnMoney()
     
     timer--
+    config.time--
   }, config.day)
 }
