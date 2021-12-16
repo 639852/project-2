@@ -1,7 +1,7 @@
 import State from './state.js'
 import config from "./config.js"
 
-const storage = new State()
+export const storage = new State()
 
 storage.add('amount', document.querySelector('.amount'))
 storage.add('coinsForStack', document.querySelector('.staking > input'))
@@ -9,7 +9,7 @@ storage.add('period', document.querySelector('.staking > select'))
 storage.add('button', document.querySelector('.staking > button'))
 
 document.addEventListener('keyup', (key) => {
-  if (key.code === 'KeyD') storage.amount.innerText++
+  if (key.code === 'KeyD') storage.amount.innerText = numFix(storage.amount.innerText, 1)
 })
 
 storage.coinsForStack.addEventListener('input', (e) => {
@@ -32,13 +32,19 @@ storage.coinsForStack.addEventListener('keydown', (key) => {
 function getMoney () {
   const x = storage.coinsForStack.value
   const time = parseInt(storage.period.options[storage.period.selectedIndex].innerText)
+  const staking = document.querySelector('.staking')
 
-  storage.amount.innerText = +(storage.amount.innerText - x).toFixed(4)
   storage.coinsForStack.value = ''
 
-  addDataToTable(x, `${time}d`, 0)
+  if (+x > 1) {
+    storage.amount.innerText = numFix(storage.amount.innerText, x, '-')
 
-  timer(x)
+    addDataToTable(x, `${time}d`, 0)
+
+    timer(x)
+  } else {
+    staking.setAttribute('data-error', 'Нельзя вводить значение меньше 1!')
+  }
 }
 
 function addDataToTable (sum, period, curSum) {
@@ -60,36 +66,39 @@ function timer (x) {
   const days = document.querySelector('table tr:last-child td:nth-child(3)')
   const fullSum = config.formula(x, num) * parseInt(days.innerText) + +x
   const curSum = days.nextElementSibling
-  const arr = config.arrayTimers
   let timer = parseInt(days.innerText)
-
-  arr.push(parseInt(days.innerText))
-
-  if (arr.length > 1) {
-    const [b, a] = arr
-    const curDays = document.querySelector(`table tr:nth-child(${arr.length - 1}) td:nth-child(3)`)
-
-    arr[0] = parseInt(curDays.innerText)
-    config.time += Math.abs(a - b)
-  }
+  let stop = true
 
   const id = setInterval(() => {
+    if (config.time <= 0) config.burnMoney()
     if (timer <= 0) {
-      storage.amount.innerText = +(+storage.amount.innerText + +fullSum).toFixed(4)
+      storage.amount.innerText = numFix(storage.amount.innerText, fullSum)
       
-      days.parentElement.remove();
-      (arr[0] > arr[1]) ? arr.pop() : arr.shift()
+      days.parentElement.remove()
+      config.anotherTimersStarted = false
 
       clearInterval(id)
       return
     }
+    
+    if (!config.anotherTimersStarted) {
+      config.anotherTimersStarted = true
+      stop = false
+    }
+    if (!stop) config.time--
 
     days.innerText = `${timer}d`
-    curSum.innerText = (+curSum.innerText + +config.formula(x, num)).toFixed(4)
-
-    if (config.time <= 0) config.burnMoney()
+    curSum.innerText = numFix(curSum.innerText, config.formula(x, num))
     
     timer--
-    config.time--
   }, config.day)
+}
+
+export function numFix (a, b, operator = '+') {
+  const frDig = config.fractionDigits
+
+  if (operator === '+') return +(+a + +b).toFixed(frDig)
+  if (operator === '-') return +(+a - +b).toFixed(frDig)
+  if (operator === '*') return +(+a * +b).toFixed(frDig)
+  if (operator === '/') return +(+a / +b).toFixed(frDig)
 }

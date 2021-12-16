@@ -1,5 +1,8 @@
+import { storage, numFix } from "./script.js"
+
 const config = {
-  arrayTimers: [],
+  anotherTimersStarted: false,
+  fractionDigits: 4,
   defaultTime: 100,
   time: 100,
   day: 400,
@@ -12,7 +15,7 @@ const config = {
     return Math.log10(x) * this.k[num] / 100
   },
   burnMoney() {
-    storage.amount.innerText = (storage.amount.innerText / Math.log(storage.amount.innerText)).toFixed(4)
+    storage.amount.innerText = numFix(storage.amount.innerText, Math.log(storage.amount.innerText), '/')
 
     this.time = this.defaultTime
   }
